@@ -5,6 +5,9 @@
 //
 // Route: /portfolio/:slug  (PublicRoutes.jsx)
 // Param: slug → dipakai untuk fetch data project
+//
+// FIX: props EmptyState (icon+description → message)
+//      props Loading (message → tidak ada prop message, fullscreen saja)
 // =============================================================
 
 import { useState, useEffect } from "react";
@@ -15,12 +18,12 @@ import MetaHead from "../../components/seo/MetaHead";
 import Loading from "../../components/common/Loading";
 import EmptyState from "../../components/common/EmptyState";
 
-// --- API layer — ganti mock saat BE siap ---
+// --- Mock data — ganti dengan API call saat BE siap ---
 import { getPortfolioBySlug as getMockBySlug } from "../../constants/portfolioData";
 
 // --- Section imports ---
-import ProjectHeroSection from "./sections/ProjectHeroSection";
-import ProjectInfoSection from "./sections/ProjectInfoSection";
+import ProjectHeroSection    from "./sections/ProjectHeroSection";
+import ProjectInfoSection    from "./sections/ProjectInfoSection";
 import ProjectGallerySection from "./sections/ProjectGallerySection";
 
 
@@ -29,21 +32,21 @@ import ProjectGallerySection from "./sections/ProjectGallerySection";
 // =============================================================
 
 export default function PortfolioDetailPage() {
-  // --- Router ---
-  const { slug } = useParams();
-  const navigate = useNavigate();
+  const { slug }   = useParams();
+  const navigate   = useNavigate();
 
   // --- State ---
-  const [project, setProject] = useState(null);   // Data project
+  const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError]     = useState(null);
 
 
   // =============================================================
   // SECTION: DATA FETCHING
-  // Saat ini pakai mock data — swap dengan API call saat BE siap:
+  // TODO: swap mock → API saat BE siap
   //   import { getPortfolioDetail } from "../../api/portfolioApi";
   //   const res = await getPortfolioDetail(slug);
+  //   setProject(res.data?.data || res.data);
   // =============================================================
 
   useEffect(() => {
@@ -52,13 +55,11 @@ export default function PortfolioDetailPage() {
         setLoading(true);
         setError(null);
 
-        // TODO: Ganti dengan API call — const res = await getPortfolioDetail(slug);
-        // Simulasi async sementara mock data dipakai
+        // Simulasi async — hapus setTimeout saat pakai API nyata
         await new Promise((r) => setTimeout(r, 400));
         const data = getMockBySlug(slug);
 
         if (!data) {
-          // Project tidak ditemukan → redirect ke listing
           setError("Project tidak ditemukan.");
           return;
         }
@@ -73,7 +74,7 @@ export default function PortfolioDetailPage() {
     };
 
     if (slug) fetchProject();
-  }, [slug]); // Re-fetch jika slug berubah
+  }, [slug]);
 
 
   // =============================================================
@@ -81,15 +82,15 @@ export default function PortfolioDetailPage() {
   // =============================================================
 
   if (loading) {
-    return <Loading fullscreen message="Memuat project..." />;
+    // fullscreen spinner — tidak ada prop message di Loading
+    return <Loading fullscreen />;
   }
 
   if (error) {
     return (
       <EmptyState
-        icon="🔍"
         title="Project Tidak Ditemukan"
-        description={error}
+        message={error}
         action={{
           label: "Kembali ke Portfolio",
           onClick: () => navigate("/portfolio"),
@@ -105,26 +106,19 @@ export default function PortfolioDetailPage() {
 
   return (
     <>
-      {/* --- SEO: title dinamis dari data project --- */}
       <MetaHead
         title={`${project.title} — Elevate Pixel Studio`}
         description={project.short_description}
       />
 
-      {/* --- Page wrapper dengan page transition --- */}
       <motion.div
         variants={pageTransition}
         initial="hidden"
         animate="visible"
         exit="exit"
       >
-        {/* Hero: judul project + thumbnail sebagai background */}
-        <ProjectHeroSection project={project} />
-
-        {/* Info: tech stack, client, year, estimated dev, link */}
-        <ProjectInfoSection project={project} />
-
-        {/* Gallery: grid foto project + lightbox modal */}
+        <ProjectHeroSection    project={project} />
+        <ProjectInfoSection    project={project} />
         <ProjectGallerySection project={project} />
       </motion.div>
     </>

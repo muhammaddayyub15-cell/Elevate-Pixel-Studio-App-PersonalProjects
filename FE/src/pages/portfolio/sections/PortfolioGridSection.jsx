@@ -3,6 +3,10 @@
 // Masonry grid — data dari portfolioApi.js (real API)
 // Fitur: filter kategori, loading state, empty state
 // Navigasi: klik card → /portfolio/:slug
+//
+// FIX: props EmptyState (icon+description → message)
+//      props Loading (message → tidak ada prop message)
+//      filter kategori di-derive dari data API, bukan hardcoded
 // =============================================================
 
 import { useState, useEffect } from "react";
@@ -12,40 +16,58 @@ import { fadeInUp, staggerContainer, scaleIn } from "../../../utils/animations";
 import SectionWrapper from "../../../components/common/SectionWrapper";
 import Loading from "../../../components/common/Loading";
 import EmptyState from "../../../components/common/EmptyState";
-
-// --- API layer (Decision 004: Controller → Service → Model) ---
 import { getPortfolios } from "../../../api/portfolioApi";
 
-// =============================================================
-// CONSTANTS — filter kategori (sesuaikan dengan data BE)
-// =============================================================
-
-const FILTER_CATEGORIES = [
-  { label: "All", value: "all" },
-  { label: "Web Design", value: "web-design" },
-  { label: "Branding", value: "branding" },
-  { label: "Landing Page", value: "landing-page" },
-  { label: "UI Kit", value: "ui-kit" },
-];
 
 // =============================================================
-// SUB-COMPONENT: FilterBar
+// SECTION: CONSTANTS
+// =============================================================
+
+// "All" selalu ada — sisanya di-derive dari data API
+const ALL_FILTER = { label: "All", value: "all" };
+
+// Array tinggi untuk variasi masonry — rotasi berdasarkan index % 3
+const CARD_HEIGHTS = ["280px", "360px", "320px"];
+
+
+// =============================================================
+// SECTION: HELPER — derive kategori unik dari data
+// Dipakai untuk build filter bar secara dinamis
+// =============================================================
+
+const buildCategories = (portfolios) => {
+  const unique = [
+    ...new Set(portfolios.map((p) => p.category).filter(Boolean)),
+  ];
+
+  return [
+    ALL_FILTER,
+    ...unique.map((cat) => ({
+      label: cat,
+      value: cat.toLowerCase().replace(/\s+/g, "-"),
+    })),
+  ];
+};
+
+
+// =============================================================
+// SECTION: SUB-COMPONENT — FilterBar
 // Tombol filter kategori — horizontal scroll di mobile
+// Categories di-pass sebagai prop (derive dari data)
 // =============================================================
 
-function FilterBar({ active, onSelect }) {
+function FilterBar({ categories, active, onSelect }) {
   return (
     <motion.div
       variants={fadeInUp}
       className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-10"
     >
-      {FILTER_CATEGORIES.map((cat) => (
+      {categories.map((cat) => (
         <button
           key={cat.value}
           onClick={() => onSelect(cat.value)}
           className="flex-shrink-0 px-5 py-2 rounded-full text-sm font-medium transition-all duration-200"
           style={{
-            // Aktif: solid purple — Inactive: glass border
             background:
               active === cat.value
                 ? "linear-gradient(135deg, #9B30FF, #6B21A8)"
@@ -65,27 +87,21 @@ function FilterBar({ active, onSelect }) {
   );
 }
 
+
 // =============================================================
-// SUB-COMPONENT: PortfolioCard
-// Card individual — 3 ukuran tinggi acak untuk efek masonry
+// SECTION: SUB-COMPONENT — PortfolioCard
+// Card individual — tinggi bervariasi untuk efek masonry
 // Klik → navigate ke /portfolio/:slug
 // =============================================================
 
-// Array tinggi untuk variasi masonry — diassign berdasarkan index % 3
-const CARD_HEIGHTS = ["280px", "360px", "320px"];
-
 function PortfolioCard({ project, index }) {
   const navigate = useNavigate();
-  const cardHeight = CARD_HEIGHTS[index % 3]; // Rotasi tinggi: 280 → 360 → 320 → repeat
-
-  const handleClick = () => {
-    navigate(`/portfolio/${project.slug}`);
-  };
+  const cardHeight = CARD_HEIGHTS[index % 3];
 
   return (
     <motion.div
       variants={scaleIn}
-      onClick={handleClick}
+      onClick={() => navigate(`/portfolio/${project.slug}`)}
       whileHover={{ y: -6, scale: 1.01 }}
       transition={{ duration: 0.25 }}
       className="relative rounded-2xl overflow-hidden cursor-pointer group"
@@ -95,7 +111,7 @@ function PortfolioCard({ project, index }) {
         border: "1px solid rgba(255,255,255,0.08)",
       }}
     >
-      {/* --- Thumbnail image --- */}
+      {/* Thumbnail */}
       {project.thumbnail ? (
         <img
           src={project.thumbnail}
@@ -104,18 +120,18 @@ function PortfolioCard({ project, index }) {
           loading="lazy"
         />
       ) : (
-        // Placeholder jika tidak ada thumbnail
         <div
           className="w-full h-full flex items-center justify-center"
           style={{
-            background: "linear-gradient(135deg, rgba(155,48,255,0.15), rgba(107,33,168,0.08))",
+            background:
+              "linear-gradient(135deg, rgba(155,48,255,0.15), rgba(107,33,168,0.08))",
           }}
         >
           <span className="text-4xl opacity-30">🎨</span>
         </div>
       )}
 
-      {/* --- Overlay hover: muncul saat hover --- */}
+      {/* Overlay hover */}
       <div
         className="absolute inset-0 flex flex-col justify-end p-5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
         style={{
@@ -123,7 +139,6 @@ function PortfolioCard({ project, index }) {
             "linear-gradient(to top, rgba(10,10,10,0.95) 0%, rgba(10,10,10,0.6) 50%, transparent 100%)",
         }}
       >
-        {/* Kategori badge */}
         {project.category && (
           <span
             className="text-xs font-medium tracking-wider uppercase mb-2 px-2 py-1 rounded-full self-start"
@@ -137,7 +152,6 @@ function PortfolioCard({ project, index }) {
           </span>
         )}
 
-        {/* Judul project */}
         <h3
           className="text-white font-bold text-lg leading-tight mb-1"
           style={{ fontFamily: "'Space Grotesk', sans-serif" }}
@@ -145,14 +159,12 @@ function PortfolioCard({ project, index }) {
           {project.title}
         </h3>
 
-        {/* Deskripsi singkat */}
         {project.short_description && (
           <p className="text-sm line-clamp-2" style={{ color: "#A0A0A0" }}>
             {project.short_description}
           </p>
         )}
 
-        {/* CTA teks */}
         <div className="flex items-center gap-1 mt-3">
           <span className="text-xs font-semibold" style={{ color: "#C678FF" }}>
             View Project
@@ -164,29 +176,31 @@ function PortfolioCard({ project, index }) {
   );
 }
 
+
 // =============================================================
-// MAIN COMPONENT — PortfolioGridSection
-// State: portfolios (data API), activeFilter, loading, error
+// SECTION: MAIN COMPONENT — PortfolioGridSection
 // =============================================================
 
 export default function PortfolioGridSection() {
   // --- State ---
-  const [portfolios, setPortfolios] = useState([]);    // Data dari API
-  const [filtered, setFiltered] = useState([]);         // Data setelah filter
+  const [portfolios, setPortfolios]     = useState([]);
+  const [filtered, setFiltered]         = useState([]);
+  const [categories, setCategories]     = useState([ALL_FILTER]); // Derive dari data
   const [activeFilter, setActiveFilter] = useState("all");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState(null);
 
   // --- Fetch data saat mount ---
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const res = await getPortfolios();
-        // Asumsi response: { data: [...] } sesuai API documentation
+        const res  = await getPortfolios();
         const data = res.data?.data || res.data || [];
+
         setPortfolios(data);
         setFiltered(data);
+        setCategories(buildCategories(data)); // Build filter dari data nyata
       } catch (err) {
         console.error("PortfolioGridSection: Gagal fetch portfolio:", err);
         setError("Gagal memuat portfolio. Silakan coba lagi.");
@@ -198,30 +212,30 @@ export default function PortfolioGridSection() {
     fetchData();
   }, []);
 
-  // --- Filter handler: update filtered list saat category berubah ---
-  const handleFilter = (category) => {
-    setActiveFilter(category);
+  // --- Filter handler ---
+  const handleFilter = (categoryValue) => {
+    setActiveFilter(categoryValue);
 
-    if (category === "all") {
+    if (categoryValue === "all") {
       setFiltered(portfolios);
       return;
     }
 
-    // Filter berdasarkan field category dari API
     const result = portfolios.filter(
-      (p) => p.category?.toLowerCase().replace(/\s+/g, "-") === category
+      (p) => p.category?.toLowerCase().replace(/\s+/g, "-") === categoryValue
     );
     setFiltered(result);
   };
 
+
   // =============================================================
-  // RENDER STATES
+  // SECTION: RENDER STATES
   // =============================================================
 
   if (loading) {
     return (
       <SectionWrapper id="portfolio-grid">
-        <Loading message="Memuat portfolio..." />
+        <Loading />
       </SectionWrapper>
     );
   }
@@ -229,11 +243,7 @@ export default function PortfolioGridSection() {
   if (error) {
     return (
       <SectionWrapper id="portfolio-grid">
-        <EmptyState
-          icon="⚠️"
-          title="Terjadi Kesalahan"
-          description={error}
-        />
+        <EmptyState title="Terjadi Kesalahan" message={error} />
       </SectionWrapper>
     );
   }
@@ -242,20 +252,23 @@ export default function PortfolioGridSection() {
     <SectionWrapper id="portfolio-grid">
       <div className="max-w-6xl mx-auto px-6">
 
-        {/* --- Filter bar --- */}
+        {/* Filter bar — kategori derive dari data */}
         <motion.div
           variants={fadeInUp}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
         >
-          <FilterBar active={activeFilter} onSelect={handleFilter} />
+          <FilterBar
+            categories={categories}
+            active={activeFilter}
+            onSelect={handleFilter}
+          />
         </motion.div>
 
-        {/* --- Grid atau Empty State --- */}
+        {/* Grid atau Empty State */}
         <AnimatePresence mode="wait">
           {filtered.length === 0 ? (
-            // Empty state saat filter tidak ada hasil
             <motion.div
               key="empty"
               initial={{ opacity: 0 }}
@@ -263,15 +276,13 @@ export default function PortfolioGridSection() {
               exit={{ opacity: 0 }}
             >
               <EmptyState
-                icon="🎨"
                 title="Belum ada project"
-                description="Belum ada portfolio untuk kategori ini."
+                message="Belum ada portfolio untuk kategori ini."
               />
             </motion.div>
           ) : (
-            // Masonry grid — CSS columns untuk variasi tinggi alami
             <motion.div
-              key={activeFilter}                        // Re-animate saat filter berubah
+              key={activeFilter}
               variants={staggerContainer}
               initial="hidden"
               animate="visible"
@@ -290,21 +301,3 @@ export default function PortfolioGridSection() {
     </SectionWrapper>
   );
 }
-
-// =============================================================
-// API RESPONSE SHAPE YANG DIHARAPKAN (dari portfolioApi.js):
-// {
-//   data: {
-//     data: [
-//       {
-//         id: 1,
-//         title: "Project Name",
-//         slug: "project-name",
-//         category: "Web Design",
-//         thumbnail: "https://...",
-//         short_description: "...",
-//       }
-//     ]
-//   }
-// }
-// =============================================================
